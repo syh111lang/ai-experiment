@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang = "zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI辅助答题实验</title>
+    <script src="https://cdn.tailwindcss.com" defer></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <script>
+        // 页面加载后执行
+        window.onload = function() {
+          console.log('窗口加载完成，应用额外修复');
+          
+          // 为所有评分点添加data-value属性
+          document.querySelectorAll('.rating-point').forEach(function(point) {
+              const input = point.querySelector('input');
+              if (input) {
+                  point.setAttribute('data-value', input.value);
+              }
+          });
+          
+          // 确保标题显示
+          document.querySelectorAll('h1, h2, h3').forEach(function(heading) {
+              heading.style.display = 'block';
+              heading.style.visibility = 'visible';
+              heading.style.opacity = '1';
+              heading.style.color = '#1F2937';
+          });
+        };
+      
+        tailwind.config = {
+            theme : 
+            {
+                extend : 
+                {
+                    colors:
+                    {
+                        primary:'#4F46E5', 
+                        secondary: '#06B6D4', 
+                        accent: '#8B5CF6',
+                        neutral: '#1F2937',
+                        'neutral-light': '#F3F4F6'
+                    },
+                    fontFamily : 
+                    {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    spacing :
+                    {
+                        '20px':'20px',
+                    },
+                    width :
+                    {
+                        '80%' :'80%',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type = "text/tailwindcss">
+        @layer utilities
+        {
+            .content-auto { content-visibility: auto; }
+            
+            /* 卡片悬停效果 */
+            .scale-hover {
+                transition: transform 0.3s ease;
+            }
+            .scale-hover:hover {
+                transform: scale(1.02);
+            }
+            
+            /* 卡片阴影 */
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            
+            /* 输入框焦点样式 */
+            .input-focus {
+                transition: all 0.3s ease;
+            }
+            .input-focus:focus {
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3); 
+                border-color: #4F46E5; 
+            }
+            
+            /* 评分点样式 */
+            .rating-point {
+                transition: all 0.2s ease;
+            }
+            .rating-point:hover {
+                transform: scale(1.1);
+            }
+            .rating-point.active {
+                background-color: #4F46E5; 
+                color: white;
+            }
+            
+            /* 打字指示器动画 */
+            .typing-indicator {
+                display: inline-block;
+                width: 10px;
+                height: 10px;
+                margin: 0 2px;
+                background-color: #4F46E5; 
+                border-radius: 50%;
+                animation: typing 1.4s infinite ease-in-out;
+            }
+            .typing-indicator:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+            .typing-indicator:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+            @keyframes typing {
+                0%, 60%, 100% {
+                    transform: translateY(0);
+                }
+                30% {
+                    transform: translateY(-5px);
+                }
+            }
+
+            /* 感谢页面样式 */
+            #thankYou {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                background-color: white !important;
+                z-index: 9999 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                transition: opacity 0.3s ease !important;
+            }
+            
+            #thankYou.hidden {
+                display: none !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+            }
+            
+            #thankYou .max-w-md {
+                width: 100% !important;
+                max-width: 28rem !important;
+                margin: 0 auto !important;
+                padding: 1rem !important;
+            }
+            
+            #thankYou button {
+                display: block !important;
+                width: 100% !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+            }
+            
+            #thankYou button:hover {
+                transform: translateY(-2px) !important;
+            }
+        }
+    </style>
+    <style>
+        /* 核心样式修复 */
+        button, 
+        .rating-point,
+        .text-xs,
+        h1, h2, h3, h4, h5, h6,
+        p, span, label {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        button span, 
+        button i, 
+        button .text-xs {
+            display: inline-block !important;
+            visibility: visible !important;
+        }
+        
+        /* 评分点样式 */
+        .rating-point {
+            position: relative !important;
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            border: 1px solid #E5E7EB !important;
+            background-color: white !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            margin: 0 4px !important;
+            overflow: visible !important;
+        }
+        
+        /* 评分点数字显示 */
+        .rating-point::before {
+            content: attr(data-value);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            color: #4B5563;
+            z-index: 5;
+            visibility: visible !important;
+            display: block !important;
+        }
+        
+        /* 活跃状态 */
+        .rating-point.active {
+            background-color: #4F46E5 !important;
+            border-color: #4F46E5 !important;
+        }
+        
+        .rating-point.active::before {
+            color: white !important;
+        }
+        
+        /* 隐藏原始单选按钮 */
+        .rating-point input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        /* 滑块样式 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4F46E5;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 2px rgba(0,0,0,0.3);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4F46E5;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 2px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-inter text-neutral min-h-screen flex flex-col">
+    <!-- 超时提示框 -->
+    <div id="timeoutAlert" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-4">
+            <div class="text-red-600 text-xl font-semibold mb-4">提示</div>
+            <p class="text-gray-700 mb-4">请认真完成试验，否则将影响被试费</p>
+            <button onclick="resetTimer()" class="bg-primary text-primary px-4 py-2 rounded hover:bg-opacity-90 transition-all w-full">
+                继续实验
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let inactivityTimer;
+        let lastActivityTime = Date.now();
+        const TIMEOUT_DURATION = 180000; // 3分钟超时时间
+
+        // 重置计时器
+        function resetTimer() {
+            clearTimeout(inactivityTimer);
+            document.getElementById('timeoutAlert').classList.add('hidden');
+            lastActivityTime = Date.now();
+            startTimer();
+        }
+
+        // 开始计时
+        function startTimer() {
+            inactivityTimer = setTimeout(() => {
+                document.getElementById('timeoutAlert').classList.remove('hidden');
+            }, TIMEOUT_DURATION);
+        }
+
+        // 处理用户活动
+        function handleUserActivity() {
+            // 只有在未超时的情况下才重置计时器
+            if (Date.now() - lastActivityTime < TIMEOUT_DURATION) {
+                resetTimer();
+            }
+        }
+
+        // 页面加载完成后的初始化
+        window.addEventListener('load', () => {
+            console.log('窗口加载完成，应用额外修复');
+            
+            // 初始化计时器
+            startTimer();
+            
+            // 添加用户活动监听
+            ['mousemove', 'keypress', 'click', 'scroll'].forEach(eventType => {
+                document.addEventListener(eventType, handleUserActivity);
+            });
+            
+            // 为所有评分点添加data-value属性
+            document.querySelectorAll('.rating-point').forEach(point => {
+                const input = point.querySelector('input');
+                if (input) {
+                    point.setAttribute('data-value', input.value);
+                }
+            });
+            
+            // 确保标题显示
+            document.querySelectorAll('h1, h2, h3').forEach(heading => {
+                heading.style.display = 'block';
+                heading.style.visibility = 'visible';
+                heading.style.opacity = '1';
+                heading.style.color = '#1F2937';
+            });
+        });
+    </script>
+
+    <!-- 导航栏 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <h1 class="text-xl font-bold text-neutral">AI辅助答题实验</h1>
+            </div>
+            <div id="progressContainer" class="hidden md:flex items-center space-x-2">
+                <span id="progressText" class="text-sm text-gray-600" >进度 0/30</span>
+                <div class="w-40 bg-gray-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-gradient-to-r from-secondary to-accent h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容 -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <!-- 休息提示部分 -->
+        <div id="restSection" class="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden card-shadow scale-hover hidden">
+            <div class="px-6 py-8 text-center">
+                <h2 class="text-xl font-semibold mb-4">您已完成一半题目，请休息一下</h2>
+                <p class="text-gray-600 mb-6">休息好后点击按钮继续试次</p>
+                <button id="continueAfterRest" class="bg-primary hover:bg-primary/90 text-primary font-medium py-3 px-6 rounded-md transition-all duration-300 shadow-md">
+                    继续答题
+                </button>
+            </div>
+        </div>
+
+        <!-- 序号输入部分 -->
+        <div id="idInputSection" class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden card-shadow scale-hover">
+            <div class="px-6 py-4">
+                <!-- 标题 -->
+                <div class="flex items-center mb-4">
+                    <i class="fa-solid fa-user-circle text-secondary text-2xl mr-3"></i>
+                    <h2 class="text-xl font-semibold">参与者信息</h2>
+                </div>
+                <!-- 序号输入 -->
+                <p class="text-gray-600 mb-4">您好，欢迎参加AI聊天机器人可用性测试。本测试旨在评估一个新的AI聊天机器人的表现。请先填写基本信息。</p>
+                <div class="mb-4">
+                    <label for="participantId" class="block text-sm font-medium text-gray-700 mb-1">参与者序号</label>
+                    <input id="participantId" type="number" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm input-focus focus:outline-none" required>
+                </div>
+                <!-- 性别输入 -->
+                <div class="mb-4">
+                    <label for="gender" class="block text-sm font-medium text-gray-700 mb-1">性别</label>
+                    <select id="gender" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm input-focus focus:outline-none" required>
+                        <option value="">请选择</option>
+                        <option value="male">男</option>
+                        <option value="female">女</option>
+                    </select>
+                </div>
+                <!-- 年龄输入 -->
+                <div class="mb-4">
+                    <label for="age" class="block text-sm font-medium text-gray-700 mb-1">年龄</label>
+                    <input id="age" type="number" min="1" max="100" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm input-focus focus:outline-none" required placeholder="请输入年龄">
+                </div>
+                <!-- 进入下一界面的按钮 -->
+                <button id="startButton" class="w-full bg-primary hover:bg-primary/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md" style="display: block !important; visibility: visible !important;">
+                    <span style="display: inline-block !important; visibility: visible !important;">进入量表测试</span> <i class="fa-solid fa-arrow-right ml-2" style="display: inline-block !important; visibility: visible !important;"></i>
+                    <div class="text-xs mt-1 text-gray-600" style="display: block !important">填写基本信息后点击进入</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 直觉思维偏好量表 -->
+        <div id="intuitiveThinkingSection" class="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden card-shadow scale-hover hidden">
+            <div class="px-6 py-4">
+                <div class="flex items-center mb-4">
+                    <h2 class="text-xl font-semibold" style="display: inline-block !important; visibility: visible !important; color: #1F2937 !important;">直觉思维偏好量表</h2>
+                </div>
+                <p class="text-gray-600 mb-6">请根据您的实际情况，评估以下陈述对您的符合程度。</p>
+                
+                <div class="space-y-6" id="intuitiveThinkingItems">
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">1. 我喜欢依赖自己的直觉印象。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-1" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-1" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-1" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-1" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-1" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-1" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-1" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">2.  我相信要相信自己的直觉。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-2" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-2" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-2" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-2" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-2" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-2" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-2" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">3. 做决定时，我倾向于依赖直觉。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-3" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-3" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-3" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-3" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-3" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-3" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-3" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">4. 在解决生活中的问题时，凭"直觉"对我来说通常很有效。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-4" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-4" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-4" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-4" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-4" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-4" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-4" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">5. 直觉是做决定时最好的指引。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-5" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-5" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-5" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-5" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-5" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-5" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-5" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">6. 在决定行动方案时，我常常凭本能行事。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-6" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-6" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-6" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-6" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-6" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-6" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="intuitive-6" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="submitIntuitiveThinking" class="w-full mt-6 bg-primary hover:bg-primary/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md" style="display: block !important; visibility: visible !important;">
+                    <span style="display: inline-block !important; visibility: visible !important;">下一步</span> <i class="fa-solid fa-arrow-right ml-2" style="display: inline-block !important; visibility: visible !important;"></i>
+                    <div class="text-xs mt-1 text-white/80" style="display: block !important; visibility: visible !important;">完成直觉思维量表后进入下一步</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 努力思考偏好量表 -->
+        <div id="needForCognitionSection" class="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden card-shadow scale-hover hidden">
+            <div class="px-6 py-4">
+                <div class="flex items-center mb-4">
+                    <h2 class="text-xl font-semibold">努力思考偏好量表</h2>
+                </div>
+                <p class="text-gray-600 mb-6">请根据您的实际情况，评估以下陈述对您的符合程度。</p>
+
+                <div class="space-y-6" id="needForCognitionItems">
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">1. 我不太擅长解决复杂的问题。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-1" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-1" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-1" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-1" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-1" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-1" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-1" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">2. 思考并非我心目中令人愉快的活动。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-2" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-2" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-2" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-2" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-2" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-2" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-2" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">3. 我尽量避免需要深入思考某事的情况。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-3" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-3" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-3" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-3" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-3" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-3" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-3" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">4. 我不是一个善于分析的思考者。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-4" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-4" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-4" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-4" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-4" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-4" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-4" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">5. 仔细推理不是我的强项。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-5" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-5" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-5" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-5" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-5" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-5" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-5" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                
+                    <div class="bg-gray-50 p-4 rounded-md">
+                        <p class="font-medium mb-3">6. 长时间努力思考某件事，给我的满足感不大。</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">完全不符合</span>
+                            <div class="flex space-x-2">
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-6" value="1" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">1</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-6" value="2" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">2</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-6" value="3" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">3</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-6" value="4" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">4</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-6" value="5" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">5</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-6" value="6" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">6</span>
+                                </label>
+                                <label class="rating-point">
+                                    <input type="radio" name="cognition-6" value="7" class="sr-only">
+                                    <span style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; visibility: visible !important; display: block !important;">7</span>
+                                </label>
+                            </div>
+                            <span class="text-xs text-gray-500">完全符合</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="submitNeedForCognition" class="w-full mt-6 bg-primary hover:bg-primary/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md" style="display: block !important; visibility: visible !important;">
+                    <span style="display: inline-block !important; visibility: visible !important;">下一步</span> <i class="fa-solid fa-arrow-right ml-2" style="display: inline-block !important; visibility: visible !important;"></i>
+                    <div class="text-xs mt-1 text-white/80" style="display: block !important; visibility: visible !important;">完成努力思考量表后进入下一步</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 实验说明部分 -->
+        <div id="experimentInstructionSection" class="max-w-2xl mx-auto bg-white rounded-xl shadow-md overflow-hidden card-shadow scale-hover hidden">
+            <div class="px-6 py-4">
+                <div class="flex items-center mb-4">
+                    <i class="fa-solid fa-info-circle text-accent text-2xl mr-3"></i>
+                    <h2 class="text-xl font-semibold">实验说明</h2>
+                </div>
+                <div class="text-gray-700 space-y-4">
+                    <p>您好，感谢您参加本次AI聊天机器人可用性测试，我们在测试一款答题AI，请不要借助外力引进数据干扰。</p>
+                    <p>在本实验中，您将使用一个新开发的AI聊天机器人来帮助您回答一系列测验问题。您的目标是<strong>通过与AI合作</strong>尽可能提高答题正确率。</p>
+                    <p>每个问题包含以下步骤：</p>
+                    <ol class="list-decimal list-inside space-y-2 pl-4">
+                        <li>您将看到一个问题和4个可能的选项</li>
+                        <li>在回答问题前，您需要评估自己对该题目的知识水平</li>
+                        <li>AI聊天机器人面板将显示当前问题，您可以点击"询问AI"按钮获取帮助</li>
+                        <li>AI回答后，您需要对AI的专业性、回应质量和您对AI的信任度进行评分</li>
+                        <li>最后，您需要选择一个答案并提交</li>
+                    </ol>
+                    <p>测验共包含30个问题，请尽力回答每一题。</p>
+                </div>
+                <button id="startExperiment" class="w-full mt-6 bg-secondary hover:bg-secondary/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md" style="display: block !important; visibility: visible !important;">
+                    <span style="display: inline-block !important; visibility: visible !important;">开始答题</span> <i class="fa-solid fa-play ml-2" style="display: inline-block !important; visibility: visible !important;"></i>
+                    <div class="text-xs mt-1  text-gray-600" style="display: block !important; ">阅读完实验说明后开始测试</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 实验内容部分 -->
+        <div id="experimentSection" class="hidden">
+            <!-- 单一阶段实验 -->
+            <div id="experimentStage" class="flex flex-col lg:flex-row gap-8 rounded-xl shadow-md overflow-hidden card-shadow scale-hover">
+                <!-- 左侧问题区域 -->
+                <div class="w-full lg:w-2/3">
+                    <!-- 提示语 -->
+                    <div class="mb-6 text-center py-3">
+                        <h2 class="text-xl font-bold text-gray-800">问题提示</h2>
+                        <p class="text-gray-600">请仔细阅读题目并选择最合适的答案</p>
+                    </div>
+                    <!-- 选择题界面-->
+                    <div id="questionContainer" class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <h3 id="questionTitle" class="text-lg font-semibold mb-4"></h3>
+                        <div id="optionList" class="space-y-3"></div>
+                    </div>
+                    
+                    <!-- 自我专业性量表 - 初始显示 -->
+                    <div id="selfRating" class="bg-white rounded-lg shadow-md p-6">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">
+                            回答问题之前，请先评估你对该题专业知识水平
+                        </h3>
+                        <div class="flex items-center mb-1">
+                            <span class="text-xs text-gray-500 w-20">不了解</span>
+                            <input type="range" id="selfRatingSlider" min="1" max="10" value="5" class="w-full appearance-none bg-gray-200 rounded-full h-2.5 cursor-pointer">
+                            <span class="text-xs text-gray-500 w-20 text-right">非常了解</span>
+                        </div>
+                        <div class="flex justify-between px-2">
+                            <span class="text-xs text-gray-400">1</span>
+                            <span class="text-xs text-gray-400">2</span>
+                            <span class="text-xs text-gray-400">3</span>
+                            <span class="text-xs text-gray-400">4</span>
+                            <span class="text-xs text-gray-400">5</span>
+                            <span class="text-xs text-gray-400">6</span>
+                            <span class="text-xs text-gray-400">7</span>
+                            <span class="text-xs text-gray-400">8</span>
+                            <span class="text-xs text-gray-400">9</span>
+                            <span class="text-xs text-gray-400">10</span>
+                        </div>
+                        <div class="flex justify-center mt-2">
+                            <span id="selfRatingValue" class="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">5</span>
+                        </div>
+                        <button id="submitSelfRating" class="w-full mt-6 bg-secondary hover:bg-secondary/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md" style="display: block !important; visibility: visible !important;">
+                            <span style="display: inline-block !important; visibility: visible !important;">提交量表</span> <i class="fa-solid fa-check ml-2" style="display: inline-block !important; visibility: visible !important;"></i>
+                            <div class="text-xs mt-1 text-primary/80" style="display: block !important; visibility: visible !important;">评估完专业知识水平后提交</div>
+                        </button>
+            </div>
+
+                    <!-- AI评价量表 - MOVED HERE - 初始隐藏 -->
+                    <div id="aiRating" class="mt-6 bg-white rounded-lg shadow-md p-6 hidden space-y-6">
+                            <!--回答质量-->
+                        <div> 
+                                <h3 class="text-sm font-medium text-gray-700 mb-2">
+                                基于这个回应，您如何评价AI的回答质量?
+                                </h3>
+                                <div class="flex items-center mb-1">
+                                <span class="text-xs text-gray-500 w-20">很差</span>
+                                    <input id="responseQualitySlider" type="range" min="1" max="10" value="5" class="w-full appearance-none bg-gray-200 rounded-full h-2.5 cursor-pointer">
+                                <span class="text-xs text-gray-500 w-20 text-right">极好</span>
+                        </div>
+                        <div class="flex justify-between px-2">
+                            <span class="text-xs text-gray-400">1</span>
+                            <span class="text-xs text-gray-400">2</span>
+                            <span class="text-xs text-gray-400">3</span>
+                            <span class="text-xs text-gray-400">4</span>
+                            <span class="text-xs text-gray-400">5</span>
+                            <span class="text-xs text-gray-400">6</span>
+                            <span class="text-xs text-gray-400">7</span>
+                            <span class="text-xs text-gray-400">8</span>
+                            <span class="text-xs text-gray-400">9</span>
+                            <span class="text-xs text-gray-400">10</span>
+                        </div>
+                            <div class="flex justify-center mt-2">
+                                <span id="responseQualityValue" class="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">5</span>
+                                </div>
+                            </div>
+                            <!--专业知识-->
+                        <div> 
+                                <h3 class="text-sm font-medium text-gray-700 mb-2">
+                                基于这个回应，您如何评价AI的专业知识？
+                                </h3>
+                                <div class="flex items-center mb-1">
+                                <span class="text-xs text-gray-500 w-20">业余</span>
+                                <input type="range" id="aiExpertiseSlider" type="range" min="1" max="10" value="5" class="w-full appearance-none bg-gray-200 rounded-full h-2.5 cursor-pointer">
+                                <span class="text-xs text-gray-500 w-20 text-right">专家</span>
+                                </div>
+                                <div class="flex justify-between px-2">
+                                    <span class="text-xs text-gray-400">1</span>
+                                    <span class="text-xs text-gray-400">2</span>
+                                    <span class="text-xs text-gray-400">3</span>
+                                    <span class="text-xs text-gray-400">4</span>
+                                    <span class="text-xs text-gray-400">5</span>
+                                    <span class="text-xs text-gray-400">6</span>
+                                    <span class="text-xs text-gray-400">7</span>
+                                    <span class="text-xs text-gray-400">8</span>
+                                    <span class="text-xs text-gray-400">9</span>
+                                    <span class="text-xs text-gray-400">10</span>
+                                </div>
+                            <div class="flex justify-center mt-2">
+                                <span id="aiExpertiseValue" class="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">5</span>
+                                </div>
+                            </div>
+                            <!--信任-->
+                        <div> 
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">
+                            基于这个回应，您对这个AI的信任程度如何？
+                            </h3>
+                            <div class="flex items-center mb-1">
+                                <span class="text-xs text-gray-500 w-20">完全不信</span>
+                                <input type="range" id="aiTrustSlider" min="1" max="10" value="5" class="w-full appearance-none bg-gray-200 rounded-full h-2.5 cursor-pointer">
+                                <span class="text-xs text-gray-500 w-20 text-right">完全信任</span>
+                            </div>
+                            <div class="flex justify-between px-2">
+                                <span class="text-xs text-gray-400">1</span>
+                                <span class="text-xs text-gray-400">2</span>
+                                <span class="text-xs text-gray-400">3</span>
+                                <span class="text-xs text-gray-400">4</span>
+                                <span class="text-xs text-gray-400">5</span>
+                                <span class="text-xs text-gray-400">6</span>
+                                <span class="text-xs text-gray-400">7</span>
+                                <span class="text-xs text-gray-400">8</span>
+                                <span class="text-xs text-gray-400">9</span>
+                                <span class="text-xs text-gray-400">10</span>
+                            </div>
+                            <div class="flex justify-center mt-2">
+                                <span id="aiTrustValue" class="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">5</span>
+                            </div>
+                        </div>
+                        <button id="submitAIRating" class="w-full mt-6 bg-accent hover:bg-accent/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md" style="display: block !important; visibility: visible !important;">
+                            <span style="display: inline-block !important; visibility: visible !important;">提交评价</span> <i class="fa-solid fa-check ml-2" style="display: inline-block !important; visibility: visible !important;"></i>
+                            <div class="text-xs mt-1  text-gray-600" style="display: block !important; visibility: visible !important;">完成AI评价后继续</div>
+                        </button>
+                    </div>
+
+                    <!-- 提交答案按钮区域 - 初始隐藏 -->
+                    <div id="submitAnswerArea" class="bg-white rounded-lg shadow-md p-6 hidden">
+                        <p class="text-gray-600 mb-4">请在与AI交流后，选择您认为正确的答案。</p>
+                        <button id="submitFinalAnswer" class="w-full mt-2 bg-secondary hover:bg-secondary/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md">
+                            <span style="display: inline-block !important; visibility: visible !important;">提交答案</span> <i class="fa-solid fa-check ml-2" style="display: inline-block !important; visibility: visible !important;"></i>
+                        <div class="text-xs mt-1 text- text-gray-600" style="display: block !important;">确认选择后进入下一题</div>
+                        </button>
+                </div>
+                </div>
+
+                <!-- 右侧AI问答区 - 初始隐藏 -->
+                <div id="aiPanel" class="w-full lg:w-1/3 hidden">
+                    <div class="sticky top-24 bg-white rounded-lg shadow-md p-6">
+                        <!-- AI回答框 -->
+                        <div class="mb-4">
+                            <h3 class="text-sm font-medium text-gray-500 mb-2">AI聊天机器人回答</h3>
+                            <div id="aiResponse" class="bg-gray-50 rounded-md p-4 min-h-[220px] text-gray-600 border border-gray-200 overflow-y-auto max-h-[300px] transition-all duration-300">
+                                点击"询问AI"按钮获取帮助
+                            </div>
+                        </div>  
+                        <!-- 题目输入框 -->
+                        <div class="mb-4">
+                            <h3 class="text-sm font-medium text-gray-500 mb-2">当前问题</h3>
+                            <div class="bg-gray-50 rounded-md p-3 border border-gray-200">
+                                <p id="aiQuestion" class="text-gray-700">选择题题目内容</p>
+                            </div>
+                        </div>
+                        <button id="askAI" class="w-full mt-6 bg-accent hover:bg-accent/90 text-primary font-medium py-2 px-4 rounded-md transition-all duration-300 shadow-md" style="display: block !important; visibility: visible !important;">
+                            <span style="display: inline-block !important; visibility: visible !important;">询问AI</span> 
+                            <div class="text-xs mt-1  text-gray-600" style="display: block !important;">获取AI对当前问题的帮助</div>
+                            </button>
+                    </div>
+                </div>
+            </div>
+      
+            <!-- 完成所有题目后的感谢界面 -->
+            <div id="thankYou" class="hidden fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+                <div class="max-w-md mx-auto px-4">
+                    <div class="bg-white rounded-lg shadow-lg p-8 text-center">
+                        <div class="text-6xl text-secondary mb-6">
+                            <i class="fa-solid fa-check-circle"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold mb-4">感谢参与实验</h2>
+                        <div class="text-gray-600 mb-8">
+                            <p class="mb-4">您已完成所有题目！</p>
+                            <p class="mb-4">请下载你的结果数据文件上传到实验群群文件。</p>
+                            <p class="font-medium text-red-600">注意：只有上传结果数据文件并发送结束实验页面截图给主试，才能结算被试费！</p>
+                        </div>
+                        <button id="restart" class="w-full bg-secondary hover:bg-secondary/90 text-primary font-medium py-4 px-6 rounded-lg transition-all duration-300 shadow-md cursor-pointer">
+                            <span class="text-lg inline-block">重新开始</span>
+                            <i class="fa-solid fa-repeat ml-2 text-lg inline-block"></i>
+                            <div class="text-sm mt-2 text-gray-600">返回实验开始</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white shadow-sm py-4 mt-auto">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>&copy; 2025 AI辅助答题实验. 所有权利保留.</p>
+        </div>
+    </footer>
+    
+    <script>
+      // 正确答案映射
+      const correctAnswersMap = {
+        question1: { index: 2, letter: "C" },
+        question2: { index: 1, letter: "B" },
+        question3: { index: 2, letter: "C" },
+        question4: { index: 1, letter: "B" },
+        question5: { index: 2, letter: "C" },
+        question6: { index: 1, letter: "B" },
+        question7: { index: 1, letter: "B" },
+        question8: { index: 2, letter: "C" },
+        question9: { index: 0, letter: "A" },
+        question10: { index: 0, letter: "A" },
+        question11: { index: 2, letter: "C" },
+        question12: { index: 2, letter: "C" },
+        question13: { index: 1, letter: "B" },
+        question14: { index: 0, letter: "A" },
+        question15: { index: 2, letter: "C" },
+        question16: { index: 2, letter: "C" },
+        question17: { index: 1, letter: "B" },
+        question18: { index: 1, letter: "B" },
+        question19: { index: 1, letter: "B" },
+        question20: { index: 2, letter: "C" },
+        question21: { index: 2, letter: "C" },
+        question22: { index: 2, letter: "C" },
+        question23: { index: 1, letter: "B" },
+        question24: { index: 0, letter: "A" },
+        question25: { index: 0, letter: "A" },
+        question26: { index: 1, letter: "B" },
+        question27: { index: 2, letter: "C" },
+        question28: { index: 2, letter: "C" },
+        question29: { index: 2, letter: "C" },
+        question30: { index: 0, letter: "A" }
+      };
+
+      // 调试辅助函数 - 输出带格式的日志信息
+      function debugLog(message, obj = null) {
+        if (obj) {
+          console.log(`[调试] ${message}:`, obj);
+        } else {
+          console.log(`[调试] ${message}`);
+        }
+      }
+      
+      // 检查DOM元素是否存在
+      function checkElement(id, name) {
+        const element = document.getElementById(id);
+        if (!element) {
+          console.error(`[错误] 未找到${name}元素 (ID: ${id})`);
+          return null;
+        }
+        return element;
+      }
+      
+      // 添加按钮点击事件，并确保事件只绑定一次
+      function addButtonClickEvent(buttonId, buttonName, callback) {
+        const button = checkElement(buttonId, buttonName);
+        if (!button) return null;
+        
+        // 移除所有现有的点击事件（通过克隆替换）
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        
+        // 添加新的点击事件
+        newButton.addEventListener('click', function(e) {
+          debugLog(`${buttonName}被点击`);
+          callback(e, newButton);
+        });
+        
+        return newButton;
+      }
+      
+    document.addEventListener('DOMContentLoaded', function() {
+      debugLog('DOM完全加载 - 初始化开始');
+      
+      // 数据结构定义
+      let questionBank = { 
+        question1: { 
+        title: "18 世纪法国启蒙运动中，哪位思想家的理论为美国三权分立政治体制提供了直接理论依据？", 
+        options: ["A. 伏尔泰的开明君主制主张", "B. 卢梭的人民主权学说", "C. 孟德斯鸠的分权制衡理论", "D. 狄德罗的百科全书派思想"], 
+        aiResponse: { 
+          thinking: "用户提问了美国三权分立政治体制的直接理论依据，我需要理解题目关注\"理论依据\"与\"三权分立\"，然后检索启蒙思想家的核心理论，评估谁的思想与该制度架构最直接相关，并筛选出最匹配的内容。", 
+          correctAnswer: "答案：C，孟德斯鸠提出权力应分立为三种职能，并强调彼此制衡，这种结构化的政治理论直接为美国体制设计提供了模型。", 
+          wrongAnswer: "答案：B，卢梭强调人民是权力的根源，这种以人民为核心的政治思想成为美国民主制度的核心理念之一。" 
+        } 
+        }, 
+        question2: { 
+        title: "关于明治维新与戊戌变法的比较，以下说法错误的是：", 
+        options: ["A. 前者由中下级武士主导，后者依靠知识分子与开明官僚", "B. 前者全面学习西方，后者仅在政治层面进行有限改革", "C. 前者推行 \"文明开化\" 政策，后者倡导 \"中体西用\"", "D. 前者取得成功实现近代化，后者因保守势力阻挠失败"], 
+        aiResponse: { 
+          thinking: "用户提问了两个历史变革的异同点，需要确认四个说法中哪个不符合史实，因此我需要比对各个维度是否准确再决定哪个说法有误。", 
+          correctAnswer: "答案：B，该说法错误，因为变法并不限于政治领域，还涉及经济、教育等多个方面改革措施。", 
+          wrongAnswer: "答案：C，该说法错误，\"中体西用\"与\"文明开化\"都强调西方技术与本国传统结合，是两者共同的改革理念。" 
+        } 
+        }, 
+        question3: { 
+        title: "以下哪一历史现象最能体现 15-16 世纪大西洋贸易对非洲社会结构的破坏？", 
+        options: ["A. 黄金与象牙等资源的大量外流", "B. 部落战争因武器贸易而加剧", "C. 奴隶贸易导致青壮年人口锐减", "D. 欧洲商品冲击传统手工业"], 
+        aiResponse: { 
+          thinking: "用户提问了大西洋贸易如何破坏非洲社会，我需要确定哪个现象最能体现\"结构性破坏\"。我将聚焦于哪些因素改变了社会的基本构成，例如人口或组织形式，并从中选择影响最深远的那一项。", 
+          correctAnswer: "答案：C，人口的流失直接打击了部落结构和劳动力基础，对社会结构造成了长期冲击。", 
+          wrongAnswer: "答案：B，武器贸易引发的战争造成社会动荡，是非洲社会解体的主要根源。" 
+        } 
+        }, 
+        question4: { 
+        title: "19 世纪英国宪章运动的核心诉求是：", 
+        options: ["A. 废除谷物法实现自由贸易", "B. 争取普选权与议会改革", "C. 改善工厂工人劳动条件", "D. 建立社会主义政权"], 
+        aiResponse: { 
+          thinking: "用户提问了宪章运动的核心诉求，我将关键词锁定在\"核心诉求\"上，并从政治、经济、社会三方面分析，提取出运动最初发起者强调最多、呼声最强的目标内容。", 
+          correctAnswer: "答案：B，运动最主要的目标是推动政治权利普及，特别是工人阶级获得选举与参政权。", 
+          wrongAnswer: "答案：A，废除谷物法有助于经济自由发展，是当时工人经济诉求的重要组成部分。" 
+        } 
+        }, 
+        question5: { 
+        title: "以下哪项事件标志着美苏冷战从政治对抗转向军事对峙？", 
+        options: ["A. 杜鲁门主义的提出", "B. 马歇尔计划的实施", "C. 北约与华约的相继成立", "D. 柏林墙的修建"], 
+        aiResponse: { 
+          thinking: "用户提问了冷战性质转变的标志性事件。我会梳理各事件发生时间和性质，判断哪一个标志双方对抗升级为军事阵营之间的直接对峙。", 
+          correctAnswer: "答案：C，这两个军事组织的建立意味着双方正式构建军事集团，冷战开始进入武装阵营对峙阶段。", 
+          wrongAnswer: "答案：A，这是冷战开始的重要标志之一，奠定了美国对抗苏联的全球战略方向。" 
+        } 
+        }, 
+        question6: { 
+        title: "在社会认知理论中，班杜拉的\"观察学习\"（也称模仿学习）强调了以下哪个概念的重要性？", 
+        options: ["A. 强化与惩罚对行为改变的直接作用", "B. 观察到他人行为的后果会影响个人行为", "C. 自我效能感（self-efficacy）在个体学习中的关键作用", "D. 归因偏差对社会互动的长期影响"], 
+        aiResponse: { 
+          thinking: "用户提问了观察学习中哪个因素最重要。我需要识别\"观察\"产生作用的环节，并判断是哪个概念对学习过程起到了关键作用。", 
+          correctAnswer: "答案：B，人会通过观察他人行为产生的结果来判断是否模仿，这种对他人后果的感知能直接影响自身行为的改变。", 
+          wrongAnswer: "答案：A，强化与惩罚是行为主义的核心机制，是解释学习行为变化最直接的理论依据。" 
+        } 
+        }, 
+        question7: { 
+        title: "如果你设计一个实验，想要测试\"情绪对决策的影响\"，以下哪种研究设计最能够有效控制情绪的影响并确保研究结果的内在效度？", 
+        options: ["A. 使用横断面研究设计，观察情绪和决策的瞬时关联", "B. 采用实验设计，通过诱发不同情绪状态并比较决策结果", "C. 通过自我报告问卷评估情绪状态与决策的关系", "D. 在自然环境中收集情绪数据并分析决策结果的变化"], 
+        aiResponse: { 
+          thinking: "用户提问了在控制条件下如何研究情绪与决策之间的关系。我需要判断哪种设计最能排除混淆变量，并确保内部效度来推断因果性。", 
+          correctAnswer: "答案：B，实验设计能主动操控变量、排除外部干扰，从而更准确地检测情绪变化对决策结果的因果影响。", 
+          wrongAnswer: "答案：C，通过主观问卷可以直接获取参与者对情绪和行为的真实反馈，是测量这种关系最有效的方式。" 
+        } 
+        }, 
+        question8: { 
+        title: "弗洛伊德认为防御机制\"否认\"的主要功能是什么？", 
+        options: ["A. 使个体理性化其不合理行为", "B. 消除不愉快的情绪体验", "C. 抑制意识中出现的冲突或焦虑", "D. 强化个体的自尊感"], 
+        aiResponse: { 
+          thinking: "用户提问了\"否认\"这种防御机制的核心功能，我需要提取这一术语在理论中的心理目标，并结合其应用情境，输出相应的描述。", 
+          correctAnswer: "答案：C，否认是一种潜意识手段，帮助个体压制或逃避那些让自己产生焦虑或内心冲突的现实。", 
+          wrongAnswer: "答案：B，通过否认负面信息，人可以更快地摆脱不良情绪，有助于心理稳定和情绪恢复。" 
+        } 
+        }, 
+        question9: { 
+        title: "在认知心理学中，哪一理论强调人类思维的层次化结构？", 
+        options: ["A. 信息加工理论", "B. 双加工理论", "C. 联结主义理论", "D. 智力层级理论"], 
+        aiResponse: { 
+          thinking: "用户提出关于认知理论结构的提问，我对理论中对\"处理层级\"的描述进行扫描，并结合认知过程的分阶段特征生成答案。", 
+          correctAnswer: "答案：A，该理论将认知过程划分为多个层级阶段，如感知、注意、记忆和输出，反映了思维的有序流动结构。", 
+          wrongAnswer: "答案：D，智力由多个层级组成，每一层都对应不同的思维能力结构，因此也强调了人类认知的多层性。" 
+        } 
+        }, 
+        question10: { 
+        title: "在心理治疗中，\"认知重构\"主要是指：", 
+        options: ["A. 改变个体的负面思维模式", "B. 提高个体的情感智商", "C. 通过行为训练改变个体的习惯", "D. 改变个体对自我的评价"], 
+        aiResponse: { 
+          thinking: "用户提问了认知重构在心理治疗中的定义，我需要调取相关心理治疗术语的标准说明，从中提取该技术的主要干预目标，并找到与其一致的表述。", 
+          correctAnswer: "答案：A，认知重构旨在帮助个体发现并修正非理性和负面的自动思维，以改善情绪和行为反应。", 
+          wrongAnswer: "答案：D，认知重构的核心是让个体意识到自身价值并积极查看自我，有助于改善自我认知。" 
+        } 
+        }, 
+        question11: { 
+        title: "哪一项因素最可能导致赤道地区的降水量较高？", 
+        options: ["A. 风带的变化", "B. 海洋洋流的影响", "C. 热带辐合带（ITCZ）", "D. 大气污染的积累"], 
+        aiResponse: { 
+          thinking: "用户问的是赤道多雨的原因，我需要调取影响降水分布的关键气候因子，并结合赤道地带典型的大气环流模式生成答案。", 
+          correctAnswer: "答案：C，热带辐合带将大量湿润空气集中在赤道附近，强烈的上升运动使降水显著增加。", 
+          wrongAnswer: "答案：B，赤道附近受暖流影响显著，海洋洋流调节湿度，是该地区多雨的主要成因。" 
+        } 
+        }, 
+        question12: { 
+        title: "按照现代城市化趋势，以下哪个地区的城市化进程最快？", 
+        options: ["A. 北美洲", "B. 西欧", "C. 非洲和亚洲发展中国家", "D. 拉丁美洲"], 
+        aiResponse: { 
+          thinking: "用户提问了当今城市化速度最快的地区，我将查找各大洲人口向城市迁移的趋势数据，并定位增长曲线最陡的区域。", 
+          correctAnswer: "答案：C，受人口增长和工业化推动，非洲与亚洲的发展中国家正在经历大规模的城市扩张。", 
+          wrongAnswer: "答案：D，拉丁美洲近年来城市人口增长迅速，是当前全球城市化速度最快的区域之一。" 
+        } 
+        }, 
+        question13: { 
+        title: "在两极地区，由于温度升高引发的冰盖融化，以下哪个现象最可能会导致全球海平面上升的加剧？", 
+        options: ["A. 海冰融化导致海水体积增大", "B. 冰盖融化后释放的淡水降低了海洋的盐度", "C. 海冰融化直接增加了海洋的水量", "D. 冰盖融化带来更多的水蒸气，增加降水量"], 
+        aiResponse: { 
+          thinking: "用户提问了冰盖融化导致海平面上升的机制，我需要从热力和盐度平衡角度分析冰盖对全球海洋系统的影响路径。", 
+          correctAnswer: "答案：B，冰盖融化使大量淡水流入海洋，改变盐度和洋流结构，进而加速海平面变化。", 
+          wrongAnswer: "答案：C，海冰直接转为海水增加体积，是造成海平面上升的最主要物理过程。" 
+        } 
+        }, 
+        question14: { 
+        title: "在地震带与火山带的交汇处，常常会发生极端的地质活动。若一个地区位于这样的位置，以下哪项现象最可能影响该地区的生态恢复能力？", 
+        options: ["A. 地壳频繁的地震活动破坏了土壤结构", "B. 火山喷发释放的气体对气候变化的长期影响", "C. 板块的相对运动导致生物栖息地的分隔", "D. 持续的火山活动引发了新的矿物质沉积"], 
+        aiResponse: { 
+          thinking: "用户提出了极端地质环境对生态影响的问题，我会识别哪些地质因素直接作用于地表生态条件，如土壤结构、植被生长基础等。", 
+          correctAnswer: "答案：A，频繁的地震活动使土壤结构破碎，降低水分和营养保持能力，严重阻碍生态修复。", 
+          wrongAnswer: "答案：B，火山喷发释放的气体改变气候系统，是影响生态恢复最深远的因素。" 
+        } 
+        }, 
+        question15: { 
+        title: "关于气候变化的潜在影响，以下哪个问题对农业生产的长期可持续性造成的影响最大？", 
+        options: ["A. 种植季节延长，但生产的气候条件并不理想", "B. 温带地区的气候逐渐向热带气候转变", "C. 极端天气事件增多，导致农业产量波动", "D. 增加温室气体的浓度，导致长期温度上升"], 
+        aiResponse: { 
+          thinking: "用户提出了关于气候变化对农业影响的任务，我将围绕农业系统的稳定性与适应性，检索与\"长期可持续性\"关联度最高的风险变量，并据此生成回答。", 
+          correctAnswer: "答案：C，极端天气直接影响作物生长环境与收成稳定性，是限制农业长期发展的关键不确定因素。",
+          wrongAnswer: "答案：A，虽然种植期拉长了，但气候不理想会持续限制产量，是农业持续发展的最大障碍。"
+        } 
+        },
+        question16: {
+        title: "爱因斯坦提出狭义相对论的年份是：",
+        options: ["A. 1879年", "B. 1900年", "C. 1905年", "D. 1915年"],
+        aiResponse: {
+          thinking: "用户问了狭义相对论的提出时间，我需要先明确题目限定的是\"狭义\"，然后查找该理论首次公开提出的年份，确认这一时间点是否与特定历史文献对应。",
+          correctAnswer: "答案：C，1905年，爱因斯坦在论文中首次提出狭义相对论的核心思想。",
+          wrongAnswer: "答案：D，1915年，他提出相对论，强调时空和引力的统一。"
+        }
+        },
+        question17: {
+        title: "超导现象最早由谁发现？",
+        options: ["A. 库珀", "B. 卡末林·昂内斯", "C. 卢瑟福", "D. 泡利"],
+        aiResponse: {
+          thinking: "用户问的是谁最早\"发现\"这一物理现象，我需要先区分\"现象的发现\"与\"理论的解释\"，然后确定谁最早进行了相关实验，依据时间判断最早的观测者。",
+          correctAnswer: "答案：B，卡末林·昂内斯最早通过实验观察到超导现象并进行描述。",
+          wrongAnswer: "答案：A，库珀发现了超导现象并解释其微观机制。"
+        }
+        },
+        question18: {
+        title: "以下哪个实验证明了原子能级的存在？",
+        options: ["A) 斯特恩-盖拉赫实验", "B) 弗兰克-赫兹实验", "C) 密立根油滴实验", "D) 杨氏双缝实验"],
+        aiResponse: {
+          thinking: "用户询问的是哪个实验验证了\"能级的存在\"，我需要先判断哪些实验涉及原子能量状态的变化，然后筛选出直接支持能级分立这一物理概念的实验，选出与题意最匹配的结果。",
+          correctAnswer: "答案：B，弗兰克-赫兹实验表明电子只能以特定能量激发原子，说明能级是分立的。",
+          wrongAnswer: "答案：A，斯特恩-盖拉赫实验通过磁场验证了原子态的量子性质。"
+        }
+        },
+        question19: {
+        title: "热力学第二定律指出：",
+        options: ["A. 能量守恒", "B. 宇宙趋向于混乱", "C. 低温热源可以全部转化为功", "D. 内能不能增加"],
+        aiResponse: {
+          thinking: "用户问的是第二定律的内容，我需要先明确第一和第二定律在内容上的区别，然后提取出与\"方向性\"或\"趋势\"有关的说法，判断哪一项准确表达了该定律的核心。",
+          correctAnswer: "答案：B，它指出孤立系统的熵总是增加，自然过程具有方向性。",
+          wrongAnswer: "答案：A，它说明能量在封闭系统中总是守恒的。"
+        }
+        },
+        question20: {
+        title: "热量从高温物体传向低温物体，这是因为：",
+        options: ["A. 分子产生斥力", "B. 能量定向移动", "C. 分子间发生碰撞", "D. 分子数目差异"],
+        aiResponse: {
+          thinking: "用户问的是热传导的机制，我需要先理解热量的流动是否涉及具体过程，然后判断是否存在物理载体或行为参与其中，选出能够解释这一过程发生原因的答案。",
+          correctAnswer: "答案：C，分子之间频繁碰撞将能量从高温区域传向低温区域。",
+          wrongAnswer: "答案：B，能量总是从高能向低能自动流动，不需要中介机制。"
+        }
+        },
+        question21: {
+        title: "基因突变最常发生在以下哪一水平？",
+        options: ["A. 个体", "B. 器官", "C. 分子", "D. 生态系统"],
+        aiResponse: {
+          thinking: "用户问的是突变最常发生在哪一层级，我需要先理解突变的定义，然后判断它最初产生的位置，排除结果表现层而关注源头发生层。",
+          correctAnswer: "答案：C，突变是DNA碱基对的改变，因此属于分子水平的事件。",
+          wrongAnswer: "答案：A，突变在个体表型上表现出来，所以属于个体层面的问题。"
+        }
+        },
+        question22: {
+        title: "下列哪种细胞器参与蛋白质合成？",
+        options: ["A. 高尔基体", "B. 线粒体", "C. 核糖体", "D. 溶酶体"],
+        aiResponse: {
+          thinking: "用户问的是\"参与蛋白质合成\"的结构，我需要先划定\"合成\"指的是哪个步骤，然后确定哪个细胞器直接执行该任务，忽略事后加工的结构。",
+          correctAnswer: "答案：C，核糖体直接负责将mRNA翻译成多肽，是蛋白质合成的主要场所。",
+          wrongAnswer: "答案：A，高尔基体处理蛋白，因此是蛋白质合成的重要结构。"
+        }
+        },
+        question23: {
+        title: "证明DNA是遗传物质的实验是？",
+        options: ["A. 格里菲斯实验", "B. 赫尔希-蔡斯实验", "C. 米勒-尤里实验", "D. 巴斯德鹅颈瓶实验"],
+        aiResponse: {
+          thinking: "用户问的是\"证明DNA是遗传物质\"的实验，我需要先判断哪些实验提供了直接证据，然后选择能够明确指出DNA本身作用的那一个。",
+          correctAnswer: "答案：B，赫尔希-蔡斯用标记DNA的噬菌体，确认遗传信息来源于DNA。",
+          wrongAnswer: "答案：A，格里菲斯通过细菌转化发现遗传物质可以在细胞间转移。"
+        }
+        },
+        question24: {
+        title: "光合作用的光反应与暗反应的联系关键物质是？",
+        options: ["A. ATP和NADPH", "B. 葡萄糖和O₂", "C. CO₂和H₂O", "D. 叶绿素和类胡萝卜素"],
+        aiResponse: {
+          thinking: "用户问的是\"联系物质\"，我需要先明确两阶段的衔接点，然后判断哪些物质起到桥梁作用，选出中间过程的能量传递者。",
+          correctAnswer: "答案：A，ATP和NADPH是光反应生成的物质，为暗反应提供能量和还原力。",
+          wrongAnswer: "答案：B，葡萄糖和氧气是最终产物，体现两个阶段的转化成果。"
+        }
+        },
+        question25: {
+        title: "现代进化论综合了哪些学科？",
+        options: ["A. 遗传学、古生物学、生态学", "B. 遗传学、古生物学、心理学", "C. 遗传学、古生物学、生理学", "D. 遗传学、古生物学、地质学"],
+        aiResponse: {
+          thinking: "用户问的是进化论所整合的学科内容，我需要先理解进化论需要解决的问题类型，然后判断哪些学科能提供机制、证据和环境背景，确认其综合来源。",
+          correctAnswer: "答案：A，遗传学、古生物学和生态学共同支撑了现代进化理论的形成。",
+          wrongAnswer: "答案：B，遗传学、生理学和古生物学构成了进化论的研究核心。"
+        }
+        },
+        question26: {
+        title: "下列化合物中，热稳定性最强的是（  ）",
+        options: ["A. Li₂CO₃", "B. Na₂CO₃", "C. BeCO₃", "D. MgCO₃"],
+        aiResponse: {
+          thinking: "用户问的是热稳定性强弱，我需要先明确热稳定性受哪些因素影响，然后判断哪种阳离子对分解趋势的抑制作用更显著，结合对碳酸根稳定性的解释作出选择。",
+          correctAnswer: "答案：B，钠离子电荷低半径大，对碳酸根极化弱，因此其碳酸盐最稳定。",
+          wrongAnswer: "答案：D，镁离子电荷高半径大，对碳酸根的稳定性作用最大。"
+        }
+        },
+        question27: {
+        title: "下列化合物中，酸性最强的是（  ）",
+        options: ["A. HIO₃", "B. HBrO₃", "C. HClO₃", "D. HIO₄"],
+        aiResponse: {
+          thinking: "用户问的是酸性强弱，我需要先考虑影响酸性的常见因素，再结合元素的电负性与氧化态，判断哪种效应在此题中主导酸性强度。",
+          correctAnswer: "答案：C，氯的电负性高且氧化态高，增强了对应含氧酸的酸性。",
+          wrongAnswer: "答案：D，碘的氧化态最高，使得对应的含氧酸最易电离出氢离子。"
+        }
+        },
+        question28: {
+        title: "下列分子中，偶极矩为零的是（  ）",
+        options: ["A. SF₄", "B. ClO₂", "C. CO₂", "D. NH₃"],
+        aiResponse: {
+          thinking: "用户问的是偶极矩为零的分子，我需要先识别各分子的空间构型，再判断其电荷是否对称分布，确定整体偶极是否互相抵消。",
+          correctAnswer: "答案：C，CO₂为直线型分子，两极电荷对称分布，偶极矩相互抵消。",
+          wrongAnswer: "答案：D，NH₃为对称三角锥形，其空间结构使整体极性相互平衡。"
+        }
+        },
+        question29: {
+        title: "下列自由基中，稳定性最强的是（  ）",
+        options: ["A. (CH₃)₃C (叔丁基自由基)", "B. CH₂=CHCH₂ (烯丙基自由基)", "C. C₆H₅CH₂ (苄基自由基)", "D. CH₃ (甲基自由基)"],
+        aiResponse: {
+          thinking: "用户问的是自由基的稳定性，我需要先明确哪些因素可以稳定自由基，然后比较几种结构的共轭与超共轭效应，判断哪种更有利于电子离域。",
+          correctAnswer: "答案：C，苄基自由基通过与苯环共轭离域电子，使其结构最稳定。",
+          wrongAnswer: "答案：A，叔丁基自由基由三个烷基稳定中间碳，形成高度稳定结构。"
+        }
+        },
+        question30: {
+        title: "下列盐类中，溶解度随温度升高而降低的是（  ）",
+        options: ["A. CaSO₄", "B. NaCl", "C. KNO₃", "D. Na₂SO₄"],
+        aiResponse: {
+          thinking: "用户问的是溶解度随温度变化的趋势，我需要先判断溶解过程的热效应，然后根据放热或吸热的不同推断升温时的溶解变化方向。",
+          correctAnswer: "答案：A，硫酸钙溶解是放热过程，温度升高反而抑制溶解。",
+          wrongAnswer: "答案：C，硝酸钾溶解性差，因此升温会降低其溶解度。"
+        }
+        }
+      };
+      
+      // 获取DOM元素
+      const idInputSection = checkElement('idInputSection', '参与者信息部分');
+      const intuitiveThinkingSection = checkElement('intuitiveThinkingSection', '直觉思维偏好量表');
+      const needForCognitionSection = checkElement('needForCognitionSection', '努力思考偏好量表');
+      const experimentInstructionSection = checkElement('experimentInstructionSection', '实验说明部分');
+      const experimentSection = checkElement('experimentSection', '实验内容部分');
+      const experimentStage = checkElement('experimentStage', '实验阶段');
+      const thankYou = checkElement('thankYou', '感谢界面');
+
+      const selfRating = checkElement('selfRating', '自我专业性量表');
+      const aiPanel = checkElement('aiPanel', 'AI问答区');
+      const aiQuestion = checkElement('aiQuestion', 'AI问题显示区');
+      const aiRating = checkElement('aiRating', 'AI评价量表');
+      const submitAnswerArea = checkElement('submitAnswerArea', '提交答案区域');
+
+      const questionTitle = checkElement('questionTitle', '题目标题');
+      const optionList = checkElement('optionList', '选项列表');
+      const aiResponseElement = checkElement('aiResponse', 'AI回答框');
+        
+      // 初始化实验
+      function initializeExperiment() {
+        debugLog('初始化实验');
+        
+        // 随机化题目顺序
+        const allQuestions = Object.keys(questionBank);
+        const shuffledQuestions = allQuestions.sort(() => Math.random() - 0.5);
+        
+        // 重新排序题目，并保存原始题号
+        const reorderedQuestionBank = {};
+        shuffledQuestions.forEach((oldId, index) => {
+          const trialNumber = index + 1; // 试次编号 1-30
+          const newId = `question${trialNumber}`;
+          reorderedQuestionBank[newId] = {
+            ...questionBank[oldId],
+            originalQuestionNumber: oldId.replace('question', ''), // 修改这里：直接保存原始题号
+            trialNumber: trialNumber // 保存试次编号
+          };
+        });
+        
+        // 更新全局变量
+        questionBank = reorderedQuestionBank;
+        currentQuestionId = `question1`; // 从第一个试次开始
+        currentQuestionIndex = 0;
+        
+        // 随机选择10个问题作为幻觉问题
+        hallucinationQuestions = [];
+        const shuffledForHallucination = [...Object.keys(reorderedQuestionBank)].sort(() => 0.5 - Math.random());
+        hallucinationQuestions = shuffledForHallucination.slice(0, 10);
+        
+        // 更新全局变量
+        window.hallucinationQuestions = hallucinationQuestions;
+        
+        // 初始化进度条
+        const progressBar = checkElement('progressBar', '进度条');
+        const progressText = checkElement('progressText', '进度文本');
+        const progressContainer = checkElement('progressContainer', '进度条容器');
+        
+        if (progressBar && progressText && progressContainer) {
+          progressBar.style.width = '0%';
+          progressText.textContent = `进度 0/30`;
+          progressContainer.classList.remove('hidden');
+        }
+        
+        debugLog('实验初始化完成，题目已随机化，幻觉问题已选择', { 
+          hallucinationQuestions,
+          firstQuestion: reorderedQuestionBank['question1']
+        });
+      }
+      
+      // 更新进度条
+      function updateProgressBar() {
+        const totalQuestions = Object.keys(questionBank).length;
+        const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+        
+        const progressBar = checkElement('progressBar', '进度条');
+        const progressText = checkElement('progressText', '进度文本');
+    
+        if (progressBar && progressText) {
+          progressBar.style.width = `${progress}%`;
+          progressText.textContent = `进度 ${currentQuestionIndex + 1}/${totalQuestions}`;
+        }
+      }
+      
+      // 全局变量
+      let currentQuestionId = "question1";
+      let currentQuestionIndex = 0;
+      let participantData = {
+          id: null,
+          gender: null,
+          age: null
+      };
+      let selfRatingSlider = checkElement('selfRatingSlider', '自我专业性滑块');
+      let selfRatingValue = checkElement('selfRatingValue', '自我专业性值显示');
+      let responseQualitySlider = checkElement('responseQualitySlider', '回应质量滑块');
+      let aiExpertiseSlider = checkElement('aiExpertiseSlider', 'AI专业度滑块');
+      let aiTrustSlider = checkElement('aiTrustSlider', 'AI信任度滑块');
+      let intuitiveThinkingScores = {};
+      let needForCognitionScores = {};
+      let userAnswers = [];
+      let hallucinationQuestions = [];
+        
+      // 初始化滑块值显示并添加事件监听
+      if (selfRatingSlider && selfRatingValue) {
+        selfRatingValue.textContent = selfRatingSlider.value;
+        
+        // 更新滑块值并显示
+        function updateSliderValue(slider, valueElement) {
+          valueElement.textContent = slider.value;
+          debugLog(`滑块 ${slider.id} 值更新为: ${slider.value}`);
+        }
+        
+        // 滑块点击事件处理
+        function handleSliderClick(event, slider, valueElement) {
+          const sliderRect = slider.getBoundingClientRect();
+          const clickPosition = (event.clientX - sliderRect.left) / sliderRect.width;
+          const newValue = Math.round(clickPosition * (parseInt(slider.max) - parseInt(slider.min)) + parseInt(slider.min));
+          slider.value = newValue;
+          valueElement.textContent = newValue;
+        }
+        
+        // 为自我评分滑块添加事件
+        selfRatingSlider.addEventListener('input', function() {
+          updateSliderValue(this, selfRatingValue);
+        });
+        selfRatingSlider.addEventListener('change', function() {
+          updateSliderValue(this, selfRatingValue);
+        });
+        selfRatingSlider.addEventListener('mousedown', function(event) {
+          handleSliderClick(event, this, selfRatingValue);
+        });
+      }
+
+      // 为所有AI评分滑块添加事件
+      [
+        {slider: responseQualitySlider, valueId: 'responseQualityValue'},
+        {slider: aiExpertiseSlider, valueId: 'aiExpertiseValue'},
+        {slider: aiTrustSlider, valueId: 'aiTrustValue'}
+      ].forEach(item => {
+        if (item.slider) {
+          const valueElement = checkElement(item.valueId, `${item.slider.id} 值显示`);
+          if (valueElement) {
+            valueElement.textContent = item.slider.value;
+            
+            item.slider.addEventListener('input', function() {
+              updateSliderValue(this, valueElement);
+            });
+            item.slider.addEventListener('change', function() {
+              updateSliderValue(this, valueElement);
+            });
+            item.slider.addEventListener('mousedown', function(event) {
+              handleSliderClick(event, this, valueElement);
+            });
+          }
+        }
+      });
+      
+      // 表单验证函数
+      
+      // 验证自我评分
+      function validateSelfRating() {
+        return selfRatingSlider && selfRatingSlider.value !== undefined;
+      }
+      
+      // 验证直觉思维偏好量表
+      function validateIntuitiveThinking() {
+        for (let i = 1; i <= 6; i++) {
+          const radios = document.querySelectorAll(`input[name="intuitive-${i}"]:checked`);
+          if (radios.length === 0) {
+            alert(`请完成直觉思维偏好量表第 ${i} 题`);
+            return false;
+          }
+        }
+        return true;
+      }
+      
+      // 验证努力思考偏好量表
+      function validateNeedForCognition() {
+        for (let i = 1; i <= 6; i++) {
+          const radios = document.querySelectorAll(`input[name="cognition-${i}"]:checked`);
+          if (radios.length === 0) {
+            alert(`请完成努力思考偏好量表第 ${i} 题`);
+            return false;
+          }
+        }
+        return true;
+      }
+      
+      // 数据收集函数
+      
+      // 收集直觉思维偏好量表数据
+      function collectIntuitiveThinkingData() {
+        for (let i = 1; i <= 6; i++) {
+          const radio = document.querySelector(`input[name="intuitive-${i}"]:checked`);
+          if (radio) intuitiveThinkingScores[`intuitive-${i}`] = parseInt(radio.value);
+        }
+        debugLog('直觉思维偏好量表数据:', intuitiveThinkingScores);
+      }
+      
+      // 收集努力思考偏好量表数据
+      function collectNeedForCognitionData() {
+        for (let i = 1; i <= 6; i++) {
+          const radio = document.querySelector(`input[name="cognition-${i}"]:checked`);
+          if (radio) needForCognitionScores[`cognition-${i}`] = parseInt(radio.value);
+        }
+        debugLog('努力思考偏好量表数据:', needForCognitionScores);
+      }
+      
+      // 验证题目答案
+      function validateQuestionAnswer() {
+        const selected = document.querySelector('input[name="question"]:checked');
+        return !!selected;
+      }
+      
+      // 保存用户答案
+      function saveUserAnswer() {
+        const selected = document.querySelector('input[name="question"]:checked');
+        if (!selected) {
+          debugLog("保存答案失败：用户未选择答案");
+          return;
+        }
+        const answerIndex = selected.value;
+        const question = questionBank[currentQuestionId];
+        
+        const isHallucination = hallucinationQuestions.includes(currentQuestionId);
+        const correctAnswer = correctAnswersMap[`question${question.originalQuestionNumber}`]; // 修改这里：使用原始题号获取正确答案
+        const correctOptionIndex = correctAnswer.index;
+        const correctOptionLetter = correctAnswer.letter;
+        const isCorrect = parseInt(answerIndex) === correctOptionIndex;
+        
+        const isOddId = parseInt(participantData.id) % 2 === 1;
+        const showedThinking = isOddId ? (currentQuestionIndex < 15) : (currentQuestionIndex >= 15);
+        
+        const answerData = {
+          trialNumber: currentQuestionIndex + 1,
+          originalQuestionNumber: parseInt(question.originalQuestionNumber), // 修改这里：使用保存的原始题号
+          participantId: participantData.id,
+          idType: isOddId ? "奇数" : "偶数",
+          questionId: currentQuestionId,
+          question: question.title,
+          userChoice: question.options[answerIndex],
+          userChoiceIndex: answerIndex,
+          userChoiceLetter: String.fromCharCode(65 + parseInt(answerIndex)),
+          correctAnswer: correctOptionLetter,
+          isCorrect: isCorrect,
+          isHallucination: isHallucination,
+          showedThinking: showedThinking,
+          gender: participantData.gender,
+          age: participantData.age,
+          selfRating: selfRatingSlider.value,
+          aiResponseQuality: responseQualitySlider.value,
+          aiExpertise: aiExpertiseSlider.value,
+          aiTrust: aiTrustSlider.value,
+          timestamp: new Date().toISOString()
+        };
+        
+        userAnswers.push(answerData);
+        debugLog('用户答案数据:', answerData);
+      }
+      
+      // 重置UI状态
+      function resetUI() {
+        debugLog('重置UI状态');
+        
+        // 清除所有问题选项选择
+        document.querySelectorAll('input[name="question"]').forEach(input => input.checked = false);
+        
+        // 重置各组件状态
+        if(aiPanel) aiPanel.classList.add('hidden');
+        if(aiResponseElement) aiResponseElement.innerHTML = '点击"询问AI"按钮获取帮助';
+        if(aiRating) aiRating.classList.add('hidden');
+        if(submitAnswerArea) submitAnswerArea.classList.add('hidden');
+        if(selfRating) selfRating.classList.remove('hidden');
+
+        // 重置所有滑块值
+        const sliders = [
+          {slider: selfRatingSlider, valueElement: selfRatingValue},
+          {slider: responseQualitySlider, valueElement: checkElement('responseQualityValue', '回应质量值显示')},
+          {slider: aiExpertiseSlider, valueElement: checkElement('aiExpertiseValue', 'AI专业度值显示')},
+          {slider: aiTrustSlider, valueElement: checkElement('aiTrustValue', 'AI信任度值显示')}
+        ];
+        
+        sliders.forEach(item => {
+          if(item.slider && item.valueElement) {
+            item.slider.value = 5;
+            item.valueElement.textContent = '5';
+          }
+        });
+        
+        // 重置询问AI按钮
+        const askAIBtn = checkElement('askAI', '询问AI按钮');
+        if (askAIBtn) {
+          askAIBtn.disabled = false;
+          askAIBtn.classList.remove('opacity-50');
+        }
+        
+        debugLog('UI状态重置完成');
+      }
+      
+      // 生成并下载CSV数据
+      function generateAndDownloadCSV(totalAccuracy) {
+        
+        // 构建CSV标题行
+        let csvContent = "试次号,题号,被试序号,年龄,性别,选择答案,正确答案,正确与否,是否显示思考过程,幻觉信息,直觉思维偏好量表1得分,直觉思维偏好量表2得分,直觉思维偏好量表3得分,直觉思维偏好量表4得分,直觉思维偏好量表5得分,直觉思维偏好量表6得分,努力思考偏好量表1得分,努力思考偏好量表2得分,努力思考偏好量表3得分,努力思考偏好量表4得分,努力思考偏好量表5得分,努力思考偏好量表6得分,自我专业性得分,AI专业性得分,回应质量得分,AI信任度得分,总正确率\n";
+        
+        // 添加每个答案的数据行
+        userAnswers.forEach(answer => {
+          const row = [
+            answer.trialNumber,
+            answer.originalQuestionNumber, 
+            answer.participantId,
+            answer.age,
+            answer.gender,
+            `${answer.userChoiceLetter}`,
+            `${answer.correctAnswer}`,
+            answer.isCorrect ? "1" : "0",
+            answer.showedThinking ? "1" : "0",
+            answer.isHallucination ? "1" : "0",
+            intuitiveThinkingScores['intuitive-1'],
+            intuitiveThinkingScores['intuitive-2'],
+            intuitiveThinkingScores['intuitive-3'],
+            intuitiveThinkingScores['intuitive-4'],
+            intuitiveThinkingScores['intuitive-5'],
+            intuitiveThinkingScores['intuitive-6'],
+            needForCognitionScores['cognition-1'],
+            needForCognitionScores['cognition-2'],
+            needForCognitionScores['cognition-3'],
+            needForCognitionScores['cognition-4'],
+            needForCognitionScores['cognition-5'],
+            needForCognitionScores['cognition-6'],
+            answer.selfRating,
+            answer.aiExpertise,
+            answer.aiResponseQuality,
+            answer.aiTrust,
+            totalAccuracy
+          ];
+          csvContent += row.join(",") + "\n";
+        });
+        
+        // 创建并下载CSV文件
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" }); // 添加BOM支持Excel中文
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `participant_${participantData.id}_data.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        debugLog("CSV数据已生成并下载");
+      }
+      
+      // 为评分点添加点击事件
+      document.querySelectorAll('.rating-point').forEach(point => {
+        point.addEventListener('click', function() {
+          const radioInput = this.querySelector('input[type="radio"]');
+          if (radioInput) {
+            radioInput.checked = true;
+            // 更新同组中所有评分点的视觉状态
+            const groupName = radioInput.name;
+            document.querySelectorAll(`input[name="${groupName}"]`).forEach(inputInGroup => {
+              const parentPoint = inputInGroup.closest('.rating-point');
+              if (parentPoint) {
+                if (inputInGroup.checked) {
+                  parentPoint.classList.add('active');
+                } else {
+                  parentPoint.classList.remove('active');
+                }
+              }
+            });
+          }
+        });
+      });
+      
+      // 确保评分点值显示正确
+      document.querySelectorAll('.rating-point').forEach(function(point) {
+        const input = point.querySelector('input');
+        if (input) {
+          point.setAttribute('data-value', input.value);
+          
+          // 初始化状态
+          if (input.checked) {
+            point.classList.add('active');
+          } else {
+            point.classList.remove('active');
+          }
+        }
+      });
+      
+      // ------------- 统一实验交互流程 -------------
+      debugLog('统一实验交互流程初始化');
+      
+      // 开始实验按钮 (参与者信息)
+      addButtonClickEvent('startButton', '进入量表测试按钮', function() {
+        participantData.id = checkElement('participantId', '参与者序号输入框').value;
+        participantData.gender = checkElement('gender', '性别选择框').value;
+        participantData.age = checkElement('age', '年龄输入框').value;
+
+        if (!participantData.id || !participantData.gender || !participantData.age) {
+          alert('请填写完整的参与者信息');
+          return;
+        }
+        // 进入全屏
+        enterFullscreen();
+
+        if(idInputSection) idInputSection.classList.add('hidden');
+        if(intuitiveThinkingSection) intuitiveThinkingSection.classList.remove('hidden');
+        debugLog('从参与者信息切换到直觉思维量表', participantData);
+      });
+      
+      // 直觉思维偏好量表提交
+      addButtonClickEvent('submitIntuitiveThinking', '直觉量表提交按钮', function() {
+        if (!validateIntuitiveThinking()) return;
+        collectIntuitiveThinkingData();
+        if(intuitiveThinkingSection) intuitiveThinkingSection.classList.add('hidden');
+        if(needForCognitionSection) needForCognitionSection.classList.remove('hidden');
+        debugLog('从直觉思维量表切换到认知需求量表');
+      });
+      
+      // 努力思考偏好量表提交
+      addButtonClickEvent('submitNeedForCognition', '认知需求量表提交按钮', function(e) {
+        e.preventDefault(); 
+        if (!validateNeedForCognition()) return;
+        collectNeedForCognitionData();
+        if(needForCognitionSection) needForCognitionSection.classList.add('hidden');
+        if(experimentInstructionSection) experimentInstructionSection.classList.remove('hidden');
+        debugLog('从认知需求量表切换到实验说明');
+      });
+                  
+      // 开始答题按钮 (从实验说明进入)
+      addButtonClickEvent('startExperiment', '开始答题按钮', function() {
+        initializeExperiment(); // 设置问题和进度条
+        
+        // 隐藏说明页面，显示实验页面
+        if(experimentInstructionSection) experimentInstructionSection.classList.add('hidden');
+        if(experimentSection) experimentSection.classList.remove('hidden');
+        if(experimentStage) experimentStage.classList.remove('hidden');
+        else {
+            console.error('未找到 experimentStage 元素!');
+            alert('页面加载不完整，请刷新页面重试。');
+            return;
+        }
+        
+        loadQuestion(currentQuestionId); // 加载第一个问题
+        resetUI(); // 确保UI处于正确的初始状态
+        debugLog('从实验说明切换到实验内容');
+      });
+      
+      // 提交自我专业性量表
+      addButtonClickEvent('submitSelfRating', '提交自我专业性按钮', function() {
+        if (!validateSelfRating()) {
+          alert('请完成自我专业性评价量表');
+          return;
+        }
+        if(selfRating) selfRating.classList.add('hidden');
+        if(aiPanel) aiPanel.classList.remove('hidden');
+        if(aiQuestion) aiQuestion.textContent = questionBank[currentQuestionId].title;
+        debugLog('从自我评价切换到AI面板');
+      });
+      
+      // 询问AI按钮
+      let askAIButton = addButtonClickEvent('askAI', '询问AI按钮', function(e, button) {
+        button.disabled = true;
+        button.classList.add('opacity-50');
+        simulateAIResponse(); // 会在适当时候重新启用按钮
+      });
+      
+      // 提交AI评价量表
+      addButtonClickEvent('submitAIRating', '提交AI评价按钮', function() {
+        const rqVal = responseQualitySlider ? responseQualitySlider.value : null;
+        const aeVal = aiExpertiseSlider ? aiExpertiseSlider.value : null;
+        const atVal = aiTrustSlider ? aiTrustSlider.value : null;
+
+        if (!rqVal || !aeVal || !atVal) {
+          alert('请完成所有AI评价');
+          return;
+        }
+        if(aiRating) aiRating.classList.add('hidden');
+        if(submitAnswerArea) submitAnswerArea.classList.remove('hidden');
+        debugLog('从AI评价切换到提交最终答案');
+      });
+      
+      // 提交最终答案
+      addButtonClickEvent('submitFinalAnswer', '提交最终答案按钮', function() {
+        if (!validateQuestionAnswer()) {
+            alert('请选择一个答案');
+            return;
+        }
+        
+        saveUserAnswer();
+        
+        // 如果是最后一题 (currentQuestionIndex === 29)
+        if (currentQuestionIndex === 29) {
+            // 退出全屏
+            exitFullscreen();
+            
+            // 计算正确率
+            const correctAnswersCount = userAnswers.filter(answer => answer.isCorrect).length;
+            const totalAccuracy = (correctAnswersCount / userAnswers.length).toFixed(2);
+            
+            // 生成并下载CSV
+            generateAndDownloadCSV(totalAccuracy);
+
+            // 隐藏实验界面
+            if (experimentStage) {
+                experimentStage.style.display = 'none';
+                experimentStage.style.visibility = 'hidden';
+                experimentStage.style.opacity = '0';
+            }
+            
+            // 显示感谢界面
+            if (thankYou) {
+                thankYou.classList.remove('hidden');
+                thankYou.style.display = 'flex';
+                thankYou.style.position = 'fixed';
+                thankYou.style.top = '0';
+                thankYou.style.left = '0';
+                thankYou.style.width = '100%';
+                thankYou.style.height = '100%';
+                thankYou.style.backgroundColor = 'white';
+                thankYou.style.zIndex = '9999';
+                thankYou.style.alignItems = 'center';
+                thankYou.style.justifyContent = 'center';
+                thankYou.style.opacity = '1';
+                thankYou.style.visibility = 'visible';
+            }
+            
+            debugLog('实验完成，显示感谢界面');
+            return;
+        }
+
+        // 如果是第15题（currentQuestionIndex === 14）
+        if (currentQuestionIndex === 14) {
+            currentQuestionIndex++; // 进入第16题
+            if(experimentStage) experimentStage.classList.add('hidden');
+            if(restSection) restSection.classList.remove('hidden');
+            debugLog('显示休息提示');
+            return;
+        }
+
+        // 其他题目正常进行
+        currentQuestionIndex++;
+        currentQuestionId = `question${currentQuestionIndex + 1}`;
+        updateProgressBar();
+        loadQuestion(currentQuestionId);
+        resetUI();
+        debugLog('进入下一题', { currentQuestionIndex, currentQuestionId });
+      });
+      
+      // 休息后继续
+      addButtonClickEvent('continueAfterRest', '继续答题按钮', function() {
+        if(restSection) restSection.classList.add('hidden');
+        if(experimentStage) experimentStage.classList.remove('hidden');
+        // 重新设置当前题号（第16题），不自增
+        currentQuestionId = Object.keys(questionBank)[currentQuestionIndex];
+        updateProgressBar();
+        loadQuestion(currentQuestionId);
+
+        // 强制重置所有答题相关UI和状态
+        // 1. 清除所有选项
+        document.querySelectorAll('input[name="question"]').forEach(input => input.checked = false);
+        // 2. 隐藏AI面板、AI评价、提交答案，显示自我专业性量表
+        if(selfRating) selfRating.classList.remove('hidden');
+        if(aiPanel) aiPanel.classList.add('hidden');
+        if(aiRating) aiRating.classList.add('hidden');
+        if(submitAnswerArea) submitAnswerArea.classList.add('hidden');
+        // 3. 重置AI回答内容
+        if(aiResponseElement) aiResponseElement.innerHTML = '点击"询问AI"按钮获取帮助';
+        // 4. 重置滑块
+        if(selfRatingSlider && selfRatingValue) {
+          selfRatingSlider.value = 5;
+          selfRatingValue.textContent = '5';
+        }
+        if(responseQualitySlider) responseQualitySlider.value = 5;
+        if(aiExpertiseSlider) aiExpertiseSlider.value = 5;
+        if(aiTrustSlider) aiTrustSlider.value = 5;
+        const responseQualityValue = checkElement('responseQualityValue', '回应质量值显示');
+        const aiExpertiseValue = checkElement('aiExpertiseValue', 'AI专业度值显示');
+        const aiTrustValue = checkElement('aiTrustValue', 'AI信任度值显示');
+        if(responseQualityValue) responseQualityValue.textContent = '5';
+        if(aiExpertiseValue) aiExpertiseValue.textContent = '5';
+        if(aiTrustValue) aiTrustValue.textContent = '5';
+        // 5. 重新启用AI按钮
+        const askAIBtn = checkElement('askAI', '询问AI按钮');
+        if (askAIBtn) {
+          askAIBtn.disabled = false;
+          askAIBtn.classList.remove('opacity-50');
+        }
+        debugLog('休息结束，继续答题');
+      });
+      
+      // 进入全屏
+function enterFullscreen() {
+  const docElm = document.documentElement;
+  if (docElm.requestFullscreen) {
+    docElm.requestFullscreen();
+  } else if (docElm.mozRequestFullScreen) { // Firefox
+    docElm.mozRequestFullScreen();
+  } else if (docElm.webkitRequestFullscreen) { // Chrome, Safari and Opera
+    docElm.webkitRequestFullscreen();
+  } else if (docElm.msRequestFullscreen) { // IE/Edge
+    docElm.msRequestFullscreen();
+  }
+}
+
+// 退出全屏
+function exitFullscreen() {
+  if (document.exitFullscreen) {
+    document.exitFullscreen();
+  } else if (document.mozCancelFullScreen) {
+    document.mozCancelFullScreen();
+  } else if (document.webkitExitFullscreen) {
+    document.webkitExitFullscreen();
+  } else if (document.msExitFullscreen) {
+    document.msExitFullscreen();
+  }
+}
+
+// 加载题目
+      function loadQuestion(questionId) {
+        debugLog('加载题目', questionId);
+        const question = questionBank[questionId];
+        if (!question || !questionTitle || !optionList) {
+          console.error('加载题目失败: 题目数据或DOM元素缺失。', {
+            questionExists: !!question, 
+            titleEl: !!questionTitle, 
+            optionEl: !!optionList
+          });
+          return;
+        }
+        
+        questionTitle.textContent = question.title;
+        optionList.innerHTML = ''; // 清除之前的选项
+        
+        question.options.forEach((option, index) => {
+          const label = document.createElement('label');
+          label.className = 'flex items-center p-3 border rounded-md hover:bg-gray-50 cursor-pointer transition-colors duration-150';
+          label.innerHTML = `
+            <input type="radio" name="question" class="mr-3 h-4 w-4 text-primary focus:ring-primary border-gray-300" value="${index}">
+            <span>${option}</span>
+          `;
+          optionList.appendChild(label);
+        });
+        
+        if (aiQuestion) aiQuestion.textContent = question.title; // 更新AI面板问题显示
+        debugLog('题目加载完成');
+      }
+      
+      // 模拟AI响应
+      function simulateAIResponse() {
+        debugLog('模拟AI响应');
+        const question = questionBank[currentQuestionId];
+        if (!question || !aiResponseElement) {
+          console.error("模拟AI响应失败: 题目数据或AI响应元素缺失。");
+          if(askAIButton) { // 如果出错，重新启用按钮
+            askAIButton.disabled = false;
+            askAIButton.classList.remove('opacity-50');
+          }
+          return;
+        }
+        
+        // 显示打字指示器
+        aiResponseElement.innerHTML = '<div class="flex justify-center items-center h-full"><div class="typing-indicator"></div><div class="typing-indicator"></div><div class="typing-indicator"></div></div>';
+        
+        // 确定是否显示幻觉回答和思考过程
+        const isHallucination = hallucinationQuestions.includes(currentQuestionId);
+        const isOddId = parseInt(participantData.id) % 2 === 1;
+        // 使用试次编号来判断是否显示思考过程
+        const trialNumber = question.trialNumber;
+        const showThinking = isOddId ? (trialNumber <= 15) : (trialNumber > 15);
+        
+        // 添加随机延迟模拟AI思考
+        const initialDelay = Math.floor(Math.random() * 251) + 500; // 500-750ms
+        
+        setTimeout(() => {
+          aiResponseElement.innerHTML = ''; // 清除打字指示器
+          const responseContainer = document.createElement('div');
+          responseContainer.className = 'flex flex-col space-y-3';
+          aiResponseElement.appendChild(responseContainer);
+          
+          const answerContainer = document.createElement('div');
+          answerContainer.className = 'bg-white p-3 rounded-lg border border-gray-200 shadow-sm';
+          
+          const thinkingText = question.aiResponse.thinking;
+          const responseText = isHallucination ? question.aiResponse.wrongAnswer : question.aiResponse.correctAnswer;
+
+          if (showThinking) {
+            // 显示思考过程 + 回答
+            const thinkingContainer = document.createElement('div');
+            thinkingContainer.className = 'bg-gray-50 p-3 rounded-lg border border-gray-200';
+            responseContainer.appendChild(thinkingContainer);
+            responseContainer.appendChild(answerContainer);
+            
+            typeMultipartText(thinkingText, thinkingContainer, "思考中...", () => {
+              setTimeout(() => {
+                typeMultipartText(responseText, answerContainer, "回答", () => {
+                  if(aiRating) aiRating.classList.remove('hidden');
+                  debugLog('AI响应完成 (带思考过程)，显示AI评价量表');
+                  if(askAIButton) { // 响应完毕后重新启用按钮
+                    askAIButton.disabled = false;
+                    askAIButton.classList.remove('opacity-50');
+                  }
+                });
+              }, 300); // 思考和回答之间的短暂延迟
+            });
+          } else {
+            // 仅显示回答
+            responseContainer.appendChild(answerContainer);
+            typeMultipartText(responseText, answerContainer, "回答", () => {
+              if(aiRating) aiRating.classList.remove('hidden');
+              debugLog('AI响应完成 (无思考过程)，显示AI评价量表');
+              if(askAIButton) { // 响应完毕后重新启用按钮
+                askAIButton.disabled = false;
+                askAIButton.classList.remove('opacity-50');
+              }
+            });
+          }
+        }, initialDelay);
+      }
+      
+      // 逐字显示文本
+      function typeMultipartText(text, container, labelPrefix = "", callback = null) {
+        let index = 0;
+        container.innerHTML = ''; // 清除容器内容
+
+        // 添加标签（如"思考中..."或"回答"）
+        if (labelPrefix) {
+          const labelDiv = document.createElement('div');
+          labelDiv.className = 'text-xs mb-1';
+          labelDiv.textContent = labelPrefix;
+          
+          if (labelPrefix === "思考中...") {
+            labelDiv.classList.add('text-gray-400');
+          } else if (labelPrefix === "回答") {
+            labelDiv.classList.add('text-accent', 'font-medium');
+          }
+          
+          container.appendChild(labelDiv);
+        }
+        
+        // 创建用于文本的span元素
+        const textSpan = document.createElement('span');
+        textSpan.className = (labelPrefix === "思考中...") ? 'text-gray-500 text-sm' : 'text-gray-800';
+        container.appendChild(textSpan);
+        
+        // 逐字显示文本的递归函数
+        function displayNextChar() {
+          if (index < text.length) {
+            textSpan.textContent += text.charAt(index);
+            index++;
+            container.scrollTop = container.scrollHeight; // 自动滚动
+            const delay = Math.floor(Math.random() * 71) + 50; // 50-120ms
+            setTimeout(displayNextChar, delay);
+          } else {
+            if (callback) callback();
+          }
+        }
+        
+        displayNextChar();
+      }
+
+      // 初始化：隐藏除idInputSection外的所有部分
+      [intuitiveThinkingSection, needForCognitionSection, 
+       experimentInstructionSection, experimentSection, 
+       thankYou, aiPanel, submitAnswerArea, aiRating].forEach(section => {
+        if (section) section.classList.add('hidden');
+      });
+      
+      if(idInputSection) idInputSection.classList.remove('hidden');
+      
+      // 隐藏初始进度条
+      if(checkElement('progressContainer', '进度条容器')) {
+        checkElement('progressContainer', '进度条容器').classList.add('hidden');
+      }
+      
+      // 记录关键DOM元素状态
+      debugLog("初始DOM元素检查:", {
+        idInputSection: !!idInputSection,
+        intuitiveThinkingSection: !!intuitiveThinkingSection,
+        needForCognitionSection: !!needForCognitionSection,
+        experimentInstructionSection: !!experimentInstructionSection,
+        experimentSection: !!experimentSection,
+        experimentStage: !!experimentStage,
+        thankYou: !!thankYou,
+        selfRating: !!selfRating,
+        aiPanel: !!aiPanel,
+        aiQuestion: !!aiQuestion,
+        aiRating: !!aiRating,
+        submitAnswerArea: !!submitAnswerArea,
+        questionTitle: !!questionTitle,
+        optionList: !!optionList,
+        aiResponseElement: !!aiResponseElement,
+        selfRatingSlider: !!selfRatingSlider
+      });
+
+    }); 
+    
+    // 添加继续答题按钮的事件处理
+    addButtonClickEvent('continueAfterRest', '继续答题按钮', function() {
+      if(restSection) restSection.classList.add('hidden');
+      if(experimentStage) experimentStage.classList.remove('hidden');
+      // 重新设置当前题号（第16题），不自增
+      currentQuestionId = Object.keys(questionBank)[currentQuestionIndex];
+      updateProgressBar();
+      loadQuestion(currentQuestionId);
+
+      // 强制重置所有答题相关UI和状态
+      // 1. 清除所有选项
+      document.querySelectorAll('input[name="question"]').forEach(input => input.checked = false);
+      // 2. 隐藏AI面板、AI评价、提交答案，显示自我专业性量表
+      if(selfRating) selfRating.classList.remove('hidden');
+      if(aiPanel) aiPanel.classList.add('hidden');
+      if(aiRating) aiRating.classList.add('hidden');
+      if(submitAnswerArea) submitAnswerArea.classList.add('hidden');
+      // 3. 重置AI回答内容
+      if(aiResponseElement) aiResponseElement.innerHTML = '点击"询问AI"按钮获取帮助';
+      // 4. 重置滑块
+      if(selfRatingSlider && selfRatingValue) {
+        selfRatingSlider.value = 5;
+        selfRatingValue.textContent = '5';
+      }
+      if(responseQualitySlider) responseQualitySlider.value = 5;
+      if(aiExpertiseSlider) aiExpertiseSlider.value = 5;
+      if(aiTrustSlider) aiTrustSlider.value = 5;
+      const responseQualityValue = checkElement('responseQualityValue', '回应质量值显示');
+      const aiExpertiseValue = checkElement('aiExpertiseValue', 'AI专业度值显示');
+      const aiTrustValue = checkElement('aiTrustValue', 'AI信任度值显示');
+      if(responseQualityValue) responseQualityValue.textContent = '5';
+      if(aiExpertiseValue) aiExpertiseValue.textContent = '5';
+      if(aiTrustValue) aiTrustValue.textContent = '5';
+      // 5. 重新启用AI按钮
+      const askAIBtn = checkElement('askAI', '询问AI按钮');
+      if (askAIBtn) {
+        askAIBtn.disabled = false;
+        askAIBtn.classList.remove('opacity-50');
+      }
+      debugLog('休息结束，继续答题');
+    });
+
+    // 添加重新开始按钮的事件处理
+    addButtonClickEvent('restart', '重新开始按钮', function() {
+      debugLog('点击重新开始按钮');
+      
+      // 重置所有状态
+      currentQuestionIndex = 0;
+      currentQuestionId = 'question1';
+      userAnswers = [];
+      
+      // 重新初始化实验
+      initializeExperiment();
+      
+      // 隐藏感谢页面
+      const thankYou = document.getElementById('thankYou');
+      if(thankYou) {
+          thankYou.classList.add('hidden');
+          thankYou.style.display = 'none';
+          thankYou.style.visibility = 'hidden';
+          thankYou.style.opacity = '0';
+      }
+      
+      // 显示开始页面
+      const startSection = document.getElementById('startSection');
+      if(startSection) {
+          startSection.classList.remove('hidden');
+          startSection.style.display = 'block';
+          startSection.style.visibility = 'visible';
+          startSection.style.opacity = '1';
+      }
+      
+      // 重置所有UI元素
+      [experimentStage, experimentSection, selfRating, aiPanel, aiRating, submitAnswerArea].forEach(element => {
+          if(element) {
+              element.classList.add('hidden');
+              element.style.display = 'none';
+              element.style.visibility = 'hidden';
+              element.style.opacity = '0';
+          }
+      });
+      
+      debugLog('实验已重置');
+    });
+    </script> 
+    
+</body>
+</html>
